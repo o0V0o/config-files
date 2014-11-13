@@ -14,7 +14,7 @@ set background=light " vim uses colors that look good on a dark background
 set mouse=a " Use the mouse!
 
 set textwidth=79 " text longer than this is autowrapped
-set formatoptions=c,q,t 	" c = auto-wrap comments with new lines and insert comment headers
+set formatoptions=c,q 	" c = auto-wrap comments with new lines and insert comment headers
 				" q = allow formatting of comments with 'gq'
 				" r = automaticly add comment leader after hitting return in insert mode
 				" t = autowrap text using textwidth (does not apply to comments)
@@ -28,8 +28,9 @@ set smartcase " use case sensitive searches if capital letters are used
 set ttyfast " we have a fast tty..
 
 
+au BufNewFile,BufRead *.frag,*.vert,*.fs,*.vs,*.glsl set filetype=glsl
+
 filetype plugin indent on
 syntax on
 
-au BufNewFile,BufRead *.frag,*.vert,*.fs,*.vs,*.glsl setf glsl
 
