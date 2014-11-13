@@ -30,3 +30,6 @@ set ttyfast " we have a fast tty..
 
 filetype plugin indent on
 syntax on
+
+au BufNewFile,BufRead *.frag,*.vert,*.fs,*.vs,*.glsl setf glsl
+
