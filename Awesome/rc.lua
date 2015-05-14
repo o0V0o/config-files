@@ -1,15 +1,28 @@
 -- Standard awesome library
-local gears = require("gears")
+--local gears = require("gears")
 local awful = require("awful")
 awful.rules = require("awful.rules")
 require("awful.autofocus")
 -- Widget and layout library
 local wibox = require("wibox")
 -- Theme handling library
-local beautiful = require("beautiful")
+--local beautiful = require("beautiful")
+
 -- Notification library
 local naughty = require("naughty")
 local menubar = require("menubar")
+
+atag = require("awful.tag")
+aclient = require("awful.client")
+
+
+-- This is used later as the default terminal and editor to run.
+local terminal = "roxterm"
+local editor = os.getenv("EDITOR") or "vim"
+local editor_cmd = terminal .. " -e " .. editor
+local browser = "chromium"
+
+
 
 -- {{{ Error handling
 -- Check if awesome encountered an error during startup and fell back to
@@ -26,6 +39,7 @@ local function debug(str, title)
                      title = title,
                      text = str })
 end
+local debug = function() end
 
 -- Handle runtime errors after startup
 do
@@ -42,29 +56,30 @@ do
     end)
 end
 -- }}}
-
 -- {{{ Variable definitions
 -- Themes define colours, icons, font and wallpapers.
 --beautiful.init("/usr/share/awesome/themes/default/theme.lua")
-beautiful.init("~/.config/awesome/theme.lua")
-
--- This is used later as the default terminal and editor to run.
-local terminal = "xfce4-terminal"
-local editor = os.getenv("EDITOR") or "vim"
-local editor_cmd = terminal .. " -e " .. editor
-local browser = "firefox"
+--beautiful.init("~/.config/awesome/theme.lua")
 
 -- Default modkey.
 -- Usually, Mod4 is the key with a logo between Control and Alt.
 -- If you do not like this or do not have such a key,
 -- I suggest you to remap Mod4 to another key using xmodmap or other tools.
 -- However, you can use another modifier like Mod1, but it may interact with others.
+fg_normal	= "#DCDCCC"
+fg_focus	= "#F0DFAF"
+fg_urgent	= "#CC9393"
+bg_normal	= "#3F3F3F"
+bg_focus	= "#1E2320"
+bg_urgent	= "#FF3F3F"
+bg_systray	= bg_urgent
+
+
 local modkey = "Mod4"
 
 -- Table of layouts to cover with awful.layout.inc, order matters.
 local layouts =
 {
-    --awful.layout.suit.floating,
     --awful.layout.suit.tile,
     --awful.layout.suit.tile.left,
     --awful.layout.suit.tile.bottom,
@@ -75,16 +90,17 @@ local layouts =
     --awful.layout.suit.spiral.dwindle,
     --awful.layout.suit.max,
     awful.layout.suit.magnifier,
-    awful.layout.suit.max.fullscreen
+    awful.layout.suit.max.fullscreen,
+    awful.layout.suit.floating
 }
 -- }}}
 
 -- {{{ Wallpaper
-if beautiful.wallpaper then
-    for s = 1, screen.count() do
-        gears.wallpaper.maximized(beautiful.wallpaper, s, false)
-    end
-end
+--if beautiful.wallpaper then
+    --for s = 1, screen.count() do
+        --gears.wallpaper.maximized(beautiful.wallpaper, s, false)
+    --end
+--end
 
 	
 -- }}}
@@ -100,7 +116,9 @@ for s = 1, screen.count() do
 		awful.tag.setmwfact( .9, tag)
 	end
 end
--- }}}
+
+screen[1].sloppy_focus = false
+
 
 -- {{{ Menu
 -- Create a laucher widget and a main menu
@@ -111,26 +129,62 @@ local myawesomemenu = {
    { "quit", awesome.quit }
 }
 
+--[[
 local mymainmenu = awful.menu({ items = { { "awesome", myawesomemenu, beautiful.awesome_icon },
                                     { "open terminal", terminal }
                                   }
                         })
+-- Menubar configuration
+menubar.utils.terminal = terminal -- Set the terminal for applications that require it
 
 local mylauncher = awful.widget.launcher({ image = beautiful.awesome_icon,
                                      menu = mymainmenu })
-
--- Menubar configuration
-menubar.utils.terminal = terminal -- Set the terminal for applications that require it
+--]]
 -- }}}
 
 -- {{{ Wibox
 -- Create a textclock widget
-local mytextclock = awful.widget.textclock()
+local clock = awful.widget.textclock()
+local systray = wibox.widget.systray()
+local tasklistButtons = awful.util.table.join(
+	awful.button({}, 1, function(c)
+		if c == client.focus then
+			c.minimized = true
+		else
+			c.minimized = false
+			client.focus = c
+			c:raise()
+		end
+	end),
+	awful.button({}, 3, function()
+		if instance then
+			instance:hide()
+			instance = nil
+		else
+			instance = awful.menu.clients{ theme = {width=250}}
+		end
+	end)
+)
 
 -- Create a wibox for each screen and add it
-local mywibox = {}
+local wiboxes = {}
+local tasklists = {}
+for s = 1, screen.count() do
+	wiboxes[s] = awful.wibox{ position="top", screen=s}
+	tasklists[s] = awful.widget.tasklist(s, awful.widget.tasklist.filter.currenttags, tasklistButtons)
+	local left = wibox.layout.fixed.horizontal()
+	local right = wibox.layout.fixed.horizontal()
+	right:add(systray)
+	right:add(clock)
+	local layout = wibox.layout.align.horizontal()
+	layout:set_left(left)
+	layout:set_middle(tasklists[s])
+	layout:set_right(right)
+	wiboxes[s]:set_widget(layout)
+end
 local mypromptbox = {}
 local mylayoutbox = {}
+
 local mytaglist = {}
 mytaglist.buttons = awful.util.table.join(
                     awful.button({ }, 1, awful.tag.viewonly),
@@ -152,7 +206,6 @@ root.buttons(awful.util.table.join(
 
 local alt = "Mod1"
 local ctrl = "Mod2"
-
 -- {{{ Key bindings
 local globalkeys = awful.util.table.join(
 
@@ -170,8 +223,6 @@ local globalkeys = awful.util.table.join(
             awful.client.focus.byidx(-1)
             if client.focus then client.focus:raise() end
         end),
-    --awful.key({ modkey,           }, "w", function () mymainmenu:show() end),
-
     -- Layout manipulation
     --awful.key({ modkey, "Shift"   }, "j", function () awful.client.swap.byidx(  1)    end),
     --awful.key({ modkey, "Shift"   }, "k", function () awful.client.swap.byidx( -1)    end),
@@ -189,8 +240,9 @@ local globalkeys = awful.util.table.join(
 
 		--]]
     -- Standard program
-    awful.key({ modkey, "Shift" }, "r", awesome.restart),
+    awful.key({ modkey, "Shift"   }, "r", awesome.restart),
     awful.key({ modkey, "Shift"   }, "q", awesome.quit),
+	awful.key({modkey,            }, "r", function() awful.util.spawn("dmenu") end),
 
     awful.key({ modkey,           }, "l",     function () awful.tag.incmwfact( 0.05)    end),
     awful.key({ modkey,           }, "h",     function () awful.tag.incmwfact(-0.05)    end),
@@ -260,12 +312,33 @@ root.keys(globalkeys)
 awful.rules.rules = {
     -- All clients will match this rule.
     { rule = { },
-      properties = { border_width = beautiful.border_width,
-                     border_color = beautiful.border_normal,
+      properties = { border_width = 2,
+                     border_color = "0x000000",
                      focus = awful.client.focus.filter,
                      raise = true,
                      keys = clientkeys,
                      buttons = clientbuttons } },
+    { rule = { class = "Florence" }, 
+	properties = { floating = true,
+	               raise = false,
+			focusable = false,
+	               focus = false },
+	callback =  function( c ) -- dont let the virtual keyboard get focus
+		c:connect_signal("focus", function(c)
+			local i, last = 0
+			repeat
+				last =  awful.client.focus.history.get( c.screen, i)
+				i=i+1
+			until last ~= c or last == nil
+			
+			if last then
+				debug("refocusing", last.class )
+				client.focus = last
+			elseif debug then
+				debug("error", "no previously focused clients?")
+			end
+		end)
+	end },
     { rule = { class = "MPlayer" },
       properties = { floating = true } },
     { rule = { class = "pinentry" },
@@ -279,15 +352,32 @@ awful.rules.rules = {
 -- }}}
 
 -- {{{ Signals
+client.connect_signal("focus", function(c)
+ c.border_width=3; c.border_color = "#add4d6"
+local last =  awful.client.focus.history.get( c.screen, 0)
+if last then debug("Last Client:", last.class) end
+ end)
+client.connect_signal("unfocus", function(c)
+	-- do not change borders if florence is being focused.
+	 c.border_width=3; c.border_color = "#000000"
+ end)
+client.connect_signal("manage", function(c)
+	debug("manage:", tostring(c.class) .. " :: " .. tostring(c.name))
+end)
 -- Signal function to execute when a new client appears.
+--[[
 client.connect_signal("manage", function (c, startup)
+	
+    naughty.notify({ preset = naughty.config.presets.critical,
+                     title = "Client",
+                     text = c.class .. c.name })
     -- Enable sloppy focus
-    c:connect_signal("mouse::enter", function(c)
-        if awful.layout.get(c.screen) ~= awful.layout.suit.magnifier
-            and awful.client.focus.filter(c) then
-            client.focus = c
-        end
-    end)
+    --c:connect_signal("mouse::enter", function(c)
+        --if awful.layout.get(c.screen) ~= awful.layout.suit.magnifier
+            --and awful.client.focus.filter(c) then
+            --client.focus = c
+        --end
+    --end)
 
     if not startup then
         -- Set the windows at the slave,
@@ -346,11 +436,12 @@ client.connect_signal("manage", function (c, startup)
         awful.titlebar(c):set_widget(layout)
     end
 end)
+--]]
 
-client.connect_signal("focus", function(c) c.border_color = beautiful.border_focus end)
-client.connect_signal("unfocus", function(c) c.border_color = beautiful.border_normal end)
 -- }}}
 --
-
 awful.util.spawn( terminal )
+awful.util.spawn_with_shell( "light -I" )
+awful.util.spawn_with_shell( "xbindkeys" )
 awful.util.spawn_with_shell( "xset dpms 0 0 120" ) -- set backlight timeout
+awful.util.spawn_with_shell( "nm-applet" ) -- set backlight timeout
