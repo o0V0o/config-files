@@ -6,11 +6,13 @@ require("awful.autofocus")
 -- Widget and layout library
 local wibox = require("wibox")
 -- Theme handling library
---local beautiful = require("beautiful")
+local beautiful = require("beautiful")
 
 -- Notification library
 local naughty = require("naughty")
 local menubar = require("menubar")
+
+local vicious = require("vicious")
 
 atag = require("awful.tag")
 aclient = require("awful.client")
@@ -20,7 +22,7 @@ aclient = require("awful.client")
 local terminal = "roxterm"
 local editor = os.getenv("EDITOR") or "vim"
 local editor_cmd = terminal .. " -e " .. editor
-local browser = "chromium"
+local browser = "vivaldi-stable"
 
 
 
@@ -58,7 +60,7 @@ end
 -- }}}
 -- {{{ Variable definitions
 -- Themes define colours, icons, font and wallpapers.
---beautiful.init("/usr/share/awesome/themes/default/theme.lua")
+beautiful.init("/usr/share/awesome/themes/zenburn/theme.lua")
 --beautiful.init("~/.config/awesome/theme.lua")
 
 -- Default modkey.
@@ -66,35 +68,28 @@ end
 -- If you do not like this or do not have such a key,
 -- I suggest you to remap Mod4 to another key using xmodmap or other tools.
 -- However, you can use another modifier like Mod1, but it may interact with others.
-fg_normal	= "#DCDCCC"
-fg_focus	= "#F0DFAF"
-fg_urgent	= "#CC9393"
-bg_normal	= "#3F3F3F"
-bg_focus	= "#1E2320"
-bg_urgent	= "#FF3F3F"
-bg_systray	= bg_urgent
-
 
 local modkey = "Mod4"
 
 -- Table of layouts to cover with awful.layout.inc, order matters.
 local layouts =
 {
-    --awful.layout.suit.tile,
+    awful.layout.suit.tile,
     --awful.layout.suit.tile.left,
     --awful.layout.suit.tile.bottom,
     --awful.layout.suit.tile.top,
-    --awful.layout.suit.fair,
-    --awful.layout.suit.fair.horizontal,
+    awful.layout.suit.fair,
+    awful.layout.suit.fair.horizontal,
     --awful.layout.suit.spiral,
     --awful.layout.suit.spiral.dwindle,
-    --awful.layout.suit.max,
-    awful.layout.suit.magnifier,
+    awful.layout.suit.max,
+    --awful.layout.suit.magnifier,
     awful.layout.suit.max.fullscreen,
     awful.layout.suit.floating
 }
 -- }}}
 
+--
 -- {{{ Wallpaper
 --if beautiful.wallpaper then
     --for s = 1, screen.count() do
@@ -113,7 +108,7 @@ for s = 1, screen.count() do
     --tags[s] = awful.tag({ 1, 2, 3, 4, 5, 6, 7, 8, 9 }, s, layouts[1])
     tags[s] = awful.tag({ 1, 2, 3, 4, 5, 6, 7, 8, 9 }, s, layouts[1])
 	for _, tag in pairs(tags[s]) do
-		awful.tag.setmwfact( .9, tag)
+		awful.tag.setmwfact( .5, tag)
 	end
 end
 
@@ -145,7 +140,52 @@ local mylauncher = awful.widget.launcher({ image = beautiful.awesome_icon,
 -- {{{ Wibox
 -- Create a textclock widget
 local clock = awful.widget.textclock()
+
 local systray = wibox.widget.systray()
+ 
+--CPU Widget
+cpu = wibox.widget.textbox()
+vicious.register(cpu, vicious.widgets.cpu, " CPU $1% ")
+ 
+--Memory Usage
+mem = wibox.widget.textbox()
+vicious.register(mem, vicious.widgets.mem, "MEM $1% ($2/$3) ", 13)
+
+-- Custom Temperature widget
+local temps = wibox.widget.textbox()
+function getTemp()
+		str = {" TEMP "}
+		str2 = {}
+	    local fd=io.popen("sensors", "r") -- list sensor data
+		line = fd:read()
+		while line do
+			local num, temp = line:match('Core (.):[ \t]*[+-](.-)C')
+			temp = temp or line:match("temp1:[ \t]*[+-](.-)C")
+			if temp then
+				temp = temp:match('(.-)[.]') or "?"
+			end
+			if num then
+				table.insert(str, temp)
+				table.insert(str, ",")
+			elseif temp then
+				table.insert(str2, temp)
+				table.insert(str2, ",")
+			end
+			line = fd:read()
+		end
+		table.remove(str);table.remove(str2)
+		return table.concat(str) ..'|'.. table.concat(str2) .. " "
+end
+temps:set_text("not testing")
+local temp_timer = timer{timeout=2}
+temp_timer:connect_signal("timeout", function()
+	temps:set_text(getTemp())
+end)
+
+-- uncomment this line to include tempurature monitoring
+--temp_timer:start()
+
+
 local tasklistButtons = awful.util.table.join(
 	awful.button({}, 1, function(c)
 		if c == client.focus then
@@ -174,6 +214,9 @@ for s = 1, screen.count() do
 	tasklists[s] = awful.widget.tasklist(s, awful.widget.tasklist.filter.currenttags, tasklistButtons)
 	local left = wibox.layout.fixed.horizontal()
 	local right = wibox.layout.fixed.horizontal()
+	right:add(mem)
+	right:add(cpu)
+	right:add(temps)
 	right:add(systray)
 	right:add(clock)
 	local layout = wibox.layout.align.horizontal()
@@ -242,7 +285,7 @@ local globalkeys = awful.util.table.join(
     -- Standard program
     awful.key({ modkey, "Shift"   }, "r", awesome.restart),
     awful.key({ modkey, "Shift"   }, "q", awesome.quit),
-	awful.key({modkey,            }, "r", function() awful.util.spawn("dmenu") end),
+	awful.key({modkey,            }, "r", function() awful.util.spawn("dmenu_run") end),
 
     awful.key({ modkey,           }, "l",     function () awful.tag.incmwfact( 0.05)    end),
     awful.key({ modkey,           }, "h",     function () awful.tag.incmwfact(-0.05)    end),
@@ -312,8 +355,8 @@ root.keys(globalkeys)
 awful.rules.rules = {
     -- All clients will match this rule.
     { rule = { },
-      properties = { border_width = 2,
-                     border_color = "0x000000",
+      properties = { border_width = beautiful.border_width,
+                     border_color = beautiful.border_normal,
                      focus = awful.client.focus.filter,
                      raise = true,
                      keys = clientkeys,
@@ -353,13 +396,13 @@ awful.rules.rules = {
 
 -- {{{ Signals
 client.connect_signal("focus", function(c)
- c.border_width=3; c.border_color = "#add4d6"
+ c.border_width=beautiful.border_width; c.border_color = beautiful.border_focus
 local last =  awful.client.focus.history.get( c.screen, 0)
 if last then debug("Last Client:", last.class) end
  end)
 client.connect_signal("unfocus", function(c)
 	-- do not change borders if florence is being focused.
-	 c.border_width=3; c.border_color = "#000000"
+	 c.border_width=beautiful.border_width; c.border_color = beautiful.border_normal
  end)
 client.connect_signal("manage", function(c)
 	debug("manage:", tostring(c.class) .. " :: " .. tostring(c.name))
@@ -439,9 +482,11 @@ end)
 --]]
 
 -- }}}
---
+
 awful.util.spawn( terminal )
 awful.util.spawn_with_shell( "light -I" )
+awful.util.spawn_with_shell( "xset dpms 0 0 0" ) -- set backlight timeout
 awful.util.spawn_with_shell( "xbindkeys" )
-awful.util.spawn_with_shell( "xset dpms 0 0 120" ) -- set backlight timeout
-awful.util.spawn_with_shell( "nm-applet" ) -- set backlight timeout
+awful.util.spawn_with_shell( "nm-applet" ) -- show wifi setting
+awful.util.spawn_with_shell( "cbatticon" ) -- show battery status
+awful.util.spawn_with_shell( "synclient TapButton1=1" ) --turn on tap-to-click 
