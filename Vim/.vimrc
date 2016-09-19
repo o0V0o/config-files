@@ -33,7 +33,7 @@ set showcmd  " show partial command in status bar
 set number " enable line numbers
 set ruler " show column and line number of cursor
 set mouse=a " Use the mouse!
-set background=light " vim uses colors that look good on a dark background
+set background=dark " vim uses colors that look good on a dark background
 
 set textwidth=79 " text longer than this is autowrapped
 set formatoptions=cq 	" c = auto-wrap comments with new lines and insert comment headers
