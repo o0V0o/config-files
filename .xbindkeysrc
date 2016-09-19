@@ -1,0 +1,15 @@
+#increse brightness
+"light -A 5;light -O"
+	XF86MonBrightnessUp
+
+"light -U 5;light -O"
+	XF86MonBrightnessDown
+
+"amixer set Master 5000+ unmute"
+	XF86AudioRaiseVolume
+
+"amixer set Master 5000- unmute"
+	XF86AudioLowerVolume
+
+"xterm"
+	m:0x40 +  c:133
